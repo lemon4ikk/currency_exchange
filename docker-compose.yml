@@ -1,0 +1,20 @@
+networks:
+  my_app:
+
+services:
+ nginx:
+  image: nginx:stable-alpine
+  ports:
+    - "80:80"
+  volumes:
+    - './nginx.conf:/etc/nginx/nginx.conf'
+  depends_on:
+    - exchange_rate_api
+  networks:
+    - my_app
+
+ exchange_rate_api:
+  build:
+    context: ./app
+  networks:
+    - my_app
