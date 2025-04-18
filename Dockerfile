@@ -13,7 +13,7 @@ RUN go build -o bin/app ./cmd/main.go
 FROM alpine AS runner
 
 WORKDIR /app
-COPY app/internal/repository/database.db ./
+COPY app ./
 
 RUN apk add --no-cache sqlite
 

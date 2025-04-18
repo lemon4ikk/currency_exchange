@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	pathDb = "../internal/repository/database.db"
+	pathDb = "internal/repository/database.db"
 )
 
 func main() {
