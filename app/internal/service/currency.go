@@ -24,6 +24,7 @@ func (s *CurrencyService) AllCurrencies(w http.ResponseWriter, r *http.Request) 
 	rows, err := s.currencyDB.Query("SELECT * FROM Currencies")
 	if err != nil {
 		m.Message = "ошибка"
+		log.Fatal(err)
 		return nil, m
 	}
 	defer rows.Close()

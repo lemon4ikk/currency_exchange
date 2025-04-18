@@ -1,13 +1,13 @@
 package main
 
 import (
-	"currency_exchange/internal/app"
+	"currency_exchange/internal/api"
 	"currency_exchange/internal/repository"
 	"log"
 )
 
 const (
-	pathDb = "database.db"
+	pathDb = "../internal/repository/database.db"
 )
 
 func main() {
@@ -17,6 +17,6 @@ func main() {
 	}
 	defer db.Db.Close()
 
-	server := app.NewServer(db.Db)
+	server := api.NewServer(db.Db)
 	server.Run()
 }

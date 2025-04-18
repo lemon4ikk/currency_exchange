@@ -3,7 +3,6 @@ package service
 import (
 	"currency_exchange/internal/templates"
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -24,14 +23,14 @@ func (e *ExchangeRateService) AllExchange(w http.ResponseWriter, r *http.Request
 
 	currencyInfo, err := e.exchangeDB.Query(
 		`SELECT e.ID AS id,
-				bc.ID AS base_currency_id,
+				bc.ID AS bc_id,
 			  	bc.FullName AS bc_name,
 			  	bc.Code AS bc_code,
 			  	bc.Sign AS bc_sign,
-				tc.ID AS target_currency_id,
-			  	tc.FullName AS tg_name,
-			  	tc.Code AS tg_code,
-			  	tc.Sign AS tg_sign,
+				tc.ID AS tc_id,
+			  	tc.FullName AS tc_name,
+			  	tc.Code AS tc_code,
+			  	tc.Sign AS tc_sign,
 			  	e.Rate AS rate
 		FROM ExchangeRates e
 		JOIN Currencies bc ON e.BaseCurrencyId = bc.ID
@@ -63,18 +62,18 @@ func (e *ExchangeRateService) CodeExchange(w http.ResponseWriter, r *http.Reques
 
 	currencyInfo, err := e.exchangeDB.Query(
 		`SELECT e.ID AS id,
-		 	    c.ID AS base_currency_id,
-	    	    c.FullName AS bc_name,
-	    		c.Code AS bc_code,
-	    		c.Sign AS bc_sign,
-	    		v.ID AS target_currency_id,
-	    		v.FullName AS tg_name,
-	    		v.Code AS tg_code,
-	    		v.Sign AS tg_sign,
+		 	    cb.ID AS bc_id,
+	    	    cb.FullName AS bc_name,
+	    		cb.Code AS bc_code,
+	    		cb.Sign AS bc_sign,
+	    		tb.ID AS tc_id,
+	    		tb.FullName AS tg_name,
+	    		tb.Code AS tg_code,
+	    		tb.Sign AS tg_sign,
 	    		e.Rate AS rate
 	    FROM ExchangeRates e
-	    JOIN Currencies c ON e.BaseCurrencyId = c.ID
-	    JOIN Currencies v ON e.TargetCurrencyId = v.ID 
+	    JOIN Currencies cb ON e.BaseCurrencyId = cb.ID
+	    JOIN Currencies ct ON e.TargetCurrencyId = ct.ID 
 	    WHERE bc_code = ? AND tg_code = ?;`, base, target)
 	if err != nil {
 		m.Message = "ошибка"
@@ -123,26 +122,25 @@ func (e *ExchangeRateService) NewExchange(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	fmt.Println(t, b, rate)
 	e.exchangeDB.QueryRow("INSERT INTO ExchangeRates (BaseCurrencyId, TargetCurrencyId, Rate) VALUES (?, ?, ?);", b, t, rate)
 
 	var newExchange []templates.ExchangeRate
 
 	currencyInfo, err := e.exchangeDB.Query(
 		`SELECT e.ID AS id,
-		 	    c.ID AS base_currency_id,
-	    	    c.FullName AS bc_name,
-	    		c.Code AS bc_code,
-	    		c.Sign AS bc_sign,
-	    		v.ID AS target_currency_id,
-	    		v.FullName AS tg_name,
-	    		v.Code AS tg_code,
-	    		v.Sign AS tg_sign,
-	    		e.Rate AS rate
-	    FROM ExchangeRates e
-	    JOIN Currencies c ON e.BaseCurrencyId = c.ID
-	    JOIN Currencies v ON e.TargetCurrencyId = v.ID 
-	    WHERE base_currency_id = ? AND target_currency_id = ?;`, b, t)
+				cb.ID AS bc_id,
+	   			cb.FullName AS bc_name,
+	   			cb.Code AS bc_code,
+	   			cb.Sign AS bc_sign,
+	   			tb.ID AS tc_id,
+	   			tb.FullName AS tg_name,
+	   			tb.Code AS tg_code,
+	   			tb.Sign AS tg_sign,
+	   			e.Rate AS rate
+		FROM ExchangeRates e
+		JOIN Currencies cb ON e.BaseCurrencyId = cb.ID
+		JOIN Currencies ct ON e.TargetCurrencyId = ct.ID 
+		WHERE bc_id = ? AND tc_id = ?;`, b, t)
 	if err != nil {
 		m.Message = "ошибка"
 		return nil, m
@@ -185,19 +183,19 @@ func (e *ExchangeRateService) UpdateExchange(w http.ResponseWriter, r *http.Requ
 
 	currencyInfo, err := e.exchangeDB.Query(
 		`SELECT e.ID AS id,
-		 	    c.ID AS base_currency_id,
-	    	    c.FullName AS bc_name,
-	    		c.Code AS bc_code,
-	    		c.Sign AS bc_sign,
-	    		v.ID AS target_currency_id,
-	    		v.FullName AS tg_name,
-	    		v.Code AS tg_code,
-	    		v.Sign AS tg_sign,
-	    		e.Rate AS rate
-	    FROM ExchangeRates e
-	    JOIN Currencies c ON e.BaseCurrencyId = c.ID
-	    JOIN Currencies v ON e.TargetCurrencyId = v.ID 
-	    WHERE base_currency_id = ? AND target_currency_id = ?;`, baseId, targetId)
+				cb.ID AS bc_id,
+			    cb.FullName AS bc_name,
+			    cb.Code AS bc_code,
+			    cb.Sign AS bc_sign,
+			    tb.ID AS tc_id,
+			    tb.FullName AS tg_name,
+			    tb.Code AS tg_code,
+			    tb.Sign AS tg_sign,
+			    e.Rate AS rate
+		FROM ExchangeRates e
+		JOIN Currencies cb ON e.BaseCurrencyId = cb.ID
+		JOIN Currencies ct ON e.TargetCurrencyId = ct.ID 
+		WHERE bc_id = ? AND tc_id = ?;`, baseId, targetId)
 	if err != nil {
 		return nil, err
 	}
@@ -210,8 +208,6 @@ func (e *ExchangeRateService) UpdateExchange(w http.ResponseWriter, r *http.Requ
 
 		newExchange = append(newExchange, e)
 	}
-
-	fmt.Println(newExchange)
 
 	return newExchange, err
 }

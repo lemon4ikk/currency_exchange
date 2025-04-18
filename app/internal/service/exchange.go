@@ -26,7 +26,6 @@ func (e *ExchangeService) Exchange(w http.ResponseWriter, r *http.Request) ([]te
 	var amountExchange []templates.ExchangeRateAmount
 	var baseId, targetId int
 	var m templates.Msg
-	var reverseFlag bool
 
 	baseCurrensyId := e.exchangeRateDB.QueryRow("SELECT ID FROM Currencies WHERE Code = ?;", baseCode)
 	targetCurrensyId := e.exchangeRateDB.QueryRow("SELECT ID FROM Currencies WHERE Code = ?;", targetCode)
@@ -61,6 +60,7 @@ func (e *ExchangeService) Exchange(w http.ResponseWriter, r *http.Request) ([]te
 		}
 	}
 
+	var reverseFlag bool
 	var usdRateFlag bool
 
 	if rate == 0 {
@@ -81,6 +81,8 @@ func (e *ExchangeService) Exchange(w http.ResponseWriter, r *http.Request) ([]te
 
 		if revercseRate == 0 {
 			reverseFlag = false
+		} else {
+			usdRateFlag = false
 		}
 
 		baseId, targetId = targetId, baseId
@@ -99,22 +101,29 @@ func (e *ExchangeService) Exchange(w http.ResponseWriter, r *http.Request) ([]te
 
 		for baseUsdRateSql.Next() {
 			if err := baseUsdRateSql.Scan(&baseUsdRate); err != nil {
-				m.Message = "ошибка"
+				m.Message = err.Error()
 				return amountExchange, m
 			}
 		}
 
 		for targetUsdRateSql.Next() {
 			if err := targetUsdRateSql.Scan(&targetUsdRate); err != nil {
+				m.Message = err.Error()
 				return amountExchange, m
 			}
 		}
 
-		rate = targetUsdRate / baseUsdRate
+		if baseUsdRate == 0 || targetUsdRate == 0 {
+			m.Message = "обменный курс не найден"
+			return amountExchange, m
+		}
 
 		if reverseFlag {
 			rate = 1 / revercseRate
-			usdRateFlag = false
+		}
+
+		if usdRateFlag {
+			rate = targetUsdRate / baseUsdRate
 		}
 	}
 
