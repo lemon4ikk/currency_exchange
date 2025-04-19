@@ -30,13 +30,13 @@ func (s *Server) Run() {
 	exchangeRateService := service.NewExchangeRateService(s.db)
 	exchangeRateHandler := handler.NewExchangeRateHandler(exchangeRateService)
 
-	mux.HandleFunc("GET /currency", currencyHandler.AllHandler)
+	mux.HandleFunc("GET /currencies", currencyHandler.AllHandler)
 	mux.HandleFunc("GET /currency/{code}", currencyHandler.CodeHandler)
-	mux.HandleFunc("POST /currency/add", currencyHandler.NewCurrency)
+	mux.HandleFunc("POST /currencies", currencyHandler.NewCurrency)
 
 	mux.HandleFunc("GET /exchangeRates", exchangeHandler.AllHandler)
 	mux.HandleFunc("GET /exchangeRates/{code}", exchangeHandler.CodeHandler)
-	mux.HandleFunc("POST /exchangeRates/add", exchangeHandler.NewExchange)
+	mux.HandleFunc("POST /exchangeRates", exchangeHandler.NewExchange)
 	mux.HandleFunc("PATCH /exchangeRates/{code}", exchangeHandler.UpdateHandler)
 
 	mux.HandleFunc("GET /exchange", exchangeRateHandler.SearchHandler)

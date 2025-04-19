@@ -2,63 +2,58 @@
 
 Проект реализует простой REST API для конвертации валют на основе заранее заданных курсов обмена.
 
-## Функционал
+## Установка и запуск проекта локально
 
-- Получение списка всех доступных валют
-- Получение курса обмена между двумя валютами
-- Конвертация суммы из одной валюты в другую
+1. Убедитесь, что у вас установлен Go.
 
-## Технологии
+2. Склонируйте репозиторий и перейдите в рабочую директорию:
 
-- Go 1.24
-- Go Modules
-- Docker
+   ```sh
+   git clone https://github.com/lemon4ikk/currency_exchange.git
+   cd currency_exchange
+   ```
 
-## Структура проекта
+3. Запустите проект:
 
-- `cmd/main.go`: точка входа
-- `api/`: 
-- `handler/`: обработчики HTTP-запросов
-- `repository/`: хранение валют и курсов (In-Memory)
-- `service/`: бизнес-логика работы с валютами и курсами
-- `templates`: 
+   ```sh
+   go run cmd/main.go
+   ```
+
+4. API будет доступен на `http://localhost:8080`
 
 ## API
 
-#### Получить список всех валют
+## Валюты
 
-`GET /currencies`
+### Получение списка всех валют
+#### GET `/currencies`
 
+### Получение конкретной валюты
+#### GET `/currency/EUR`
+
+### Добавление новой валюты в базу
+#### POST `/currencies`
+#### Данные передаются в теле запроса в виде полей формы (x-www-form-urlencoded). Поля формы - name, code, sign.
+---
+## Обменные курсы
+
+### Получение списка всех валют
+#### GET `/exchangeRates`
+
+### Получение конкретного обменного курса
+#### GET `GET /exchangeRate/USDRUB`
+
+### Добавление новой валюты в базу
+#### POST `/exchangeRates`
+#### Данные передаются в теле запроса в виде полей формы (x-www-form-urlencoded). Поля формы - baseCurrencyCode, targetCurrencyCode, rate.
+
+### Обновление существующего в базе обменного курса
+#### PATCH `/exchangeRate/USDRUB`
+#### Данные передаются в теле запроса в виде полей формы (x-www-form-urlencoded). Единственное поле формы - rate
 ---
 
-#### Получить курс обмена между двумя валютами
+## Обмен валюты
 
-`GET /exchange-rate?from={fromCurrency}&to={toCurrency}`
-
-**Параметры:**
-- `from`: код исходной валюты
-- `to`: код целевой валюты
-
-## Деплой
-
-`http://ip:8080/`
-
-## Запуск проекта локально
-
-1. Клонировать репозиторий:
-    ```bash
-    git clone https://github.com/your-username/currency-exchange.git
-    cd currency-exchange
-    ```
-
-2. Установить зависимости:
-    ```bash
-    go mod tidy
-    ```
-
-3. Запустить сервер:
-    ```bash
-    go run main.go
-    ```
-
-4. API будет доступен на `http://localhost:8080`.
+### Расчёт перевода определённого количества средств из одной валюты в другую
+#### GET `/exchange?from=BASE_CURRENCY_CODE&to=TARGET_CURRENCY_CODE&amount=$AMOUNT`
+#### Пример запроса - GET /exchange?from=USD&to=AUD&amount=10
