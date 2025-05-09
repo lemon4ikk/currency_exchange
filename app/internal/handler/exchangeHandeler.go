@@ -1,31 +1,32 @@
 package handler
 
 import (
+	"currency_exchange/internal/middleware"
 	"currency_exchange/internal/service"
-	"encoding/json"
 	"net/http"
 )
 
-type exchangeHandler struct {
-	exchangeRateService *service.ExchangeService
+type ExchangeHandler struct {
+	exchangeService *service.ExchangeService
 }
 
-func NewExchangeRateHandler(e *service.ExchangeService) *exchangeHandler {
-	return &exchangeHandler{
-		exchangeRateService: e,
+func NewExchangeHandler(e *service.ExchangeService) *ExchangeHandler {
+	return &ExchangeHandler{
+		exchangeService: e,
 	}
 }
 
-func (e *exchangeHandler) SearchHandler(w http.ResponseWriter, r *http.Request) {
-	res, m := e.exchangeRateService.Exchange(w, r)
+func (e *ExchangeHandler) SearchHandler(w http.ResponseWriter, r *http.Request) {
+	baseCode := r.FormValue("from")
+	targetCode := r.FormValue("to")
+	amount := r.FormValue("amount")
+
+	res, m := e.exchangeService.Exchange(baseCode, targetCode, amount)
 
 	if m.Message != "" {
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(m)
-	} else {
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(res)
+		middleware.WriteJSON(w, http.StatusInternalServerError, m)
+		return
 	}
+
+	middleware.WriteJSON(w, http.StatusOK, res)
 }

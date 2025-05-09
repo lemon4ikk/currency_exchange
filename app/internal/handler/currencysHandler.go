@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"currency_exchange/internal/middleware"
 	"currency_exchange/internal/service"
-	"encoding/json"
 	"net/http"
 )
 
@@ -17,43 +17,36 @@ func NewCurrencyHandler(c *service.CurrencyService) *CurrencyHandler {
 }
 
 func (s *CurrencyHandler) AllHandler(w http.ResponseWriter, r *http.Request) {
-	currencies, msg := s.currency.AllCurrencies(w, r)
+	currencies, msg := s.currency.AllCurrencies()
 	if msg.Message != "" {
-		w.Header().Set("Contetnt-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(msg)
+		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(currencies)
+	middleware.WriteJSON(w, http.StatusOK, currencies)
 }
 
 func (s *CurrencyHandler) CodeHandler(w http.ResponseWriter, r *http.Request) {
-	currency, msg := s.currency.Code(w, r)
+	code := r.PathValue("code")
+	currency, msg := s.currency.Code(code)
 	if msg.Message != "" {
-		w.Header().Set("Contetnt-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(msg)
+		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(currency)
+	middleware.WriteJSON(w, http.StatusOK, currency)
 }
 
 func (s *CurrencyHandler) NewCurrency(w http.ResponseWriter, r *http.Request) {
-	currency, msg := s.currency.New(w, r)
+	name := r.FormValue("name")
+	code := r.FormValue("code")
+	sign := r.FormValue("sign")
+
+	currency, msg := s.currency.New(name, code, sign)
 	if msg.Message != "" {
-		w.Header().Set("Contetnt-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(msg)
+		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(currency)
+	middleware.WriteJSON(w, http.StatusCreated, currency)
 }

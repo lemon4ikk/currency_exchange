@@ -1,73 +1,71 @@
 package handler
 
 import (
+	"currency_exchange/internal/middleware"
 	"currency_exchange/internal/service"
-	"encoding/json"
-	"log"
 	"net/http"
 )
 
-type ExchangeHandler struct {
+type ExchangeRateHandler struct {
 	exchange *service.ExchangeRateService
 }
 
-func NewExchangeHandler(c *service.ExchangeRateService) *ExchangeHandler {
-	return &ExchangeHandler{
+func NewExchangeRateHandler(c *service.ExchangeRateService) *ExchangeRateHandler {
+	return &ExchangeRateHandler{
 		exchange: c,
 	}
 }
 
-func (c *ExchangeHandler) AllHandler(w http.ResponseWriter, r *http.Request) {
+func (c *ExchangeRateHandler) AllHandler(w http.ResponseWriter, r *http.Request) {
 	e, msg := c.exchange.AllExchange(w, r)
 	if msg.Message != "" {
-		w.Header().Set("Contetnt-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(msg)
+		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(e)
+	middleware.WriteJSON(w, http.StatusOK, e)
 }
 
-func (c *ExchangeHandler) CodeHandler(w http.ResponseWriter, r *http.Request) {
-	e, msg := c.exchange.CodeExchange(w, r)
+func (c *ExchangeRateHandler) CodeHandler(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+
+	e, msg := c.exchange.CodeExchange(code)
+	var s int
 	if msg.Message != "" {
-		w.Header().Set("Contetnt-Type", "application/json")
 		if msg.Message == "ошибка" {
-			w.WriteHeader(http.StatusInternalServerError)
+			s = http.StatusInternalServerError
 		} else {
-			w.WriteHeader(http.StatusNotFound)
+			s = http.StatusNotFound
 		}
-		json.NewEncoder(w).Encode(msg)
+
+		middleware.WriteJSON(w, s, msg)
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(e)
+	middleware.WriteJSON(w, http.StatusOK, e)
 }
 
-func (c *ExchangeHandler) NewExchange(w http.ResponseWriter, r *http.Request) {
-	e, msg := c.exchange.NewExchange(w, r)
+func (c *ExchangeRateHandler) NewExchange(w http.ResponseWriter, r *http.Request) {
+	baseCurrencyCode := r.FormValue("baseCurrencyCode")
+	targetCurrencyCode := r.FormValue("targetCurrencyCode")
+	rate := r.FormValue("rate")
+
+	e, msg := c.exchange.NewExchange(baseCurrencyCode, targetCurrencyCode, rate)
 	if msg.Message != "" {
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(e)
+		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(e)
+	middleware.WriteJSON(w, http.StatusCreated, e)
 }
 
-func (c *ExchangeHandler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
-	e, err := c.exchange.UpdateExchange(w, r)
-	if err != nil {
-		log.Fatalf("method NewExchange complited with error: %v", err)
+func (c *ExchangeRateHandler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+	rate := r.FormValue("rate")
+
+	e, msg := c.exchange.UpdateExchange(code, rate)
+	if msg.Message != "" {
+		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
 	}
 
-	json.NewEncoder(w).Encode(e)
-	json.NewEncoder(w).Encode(http.StatusOK)
+	middleware.WriteJSON(w, http.StatusOK, e)
 }

@@ -2,48 +2,47 @@ package api
 
 import (
 	"currency_exchange/internal/handler"
-	"currency_exchange/internal/service"
-	"database/sql"
+	"currency_exchange/internal/middleware"
 	"log"
 	"net/http"
 )
 
 type Server struct {
-	db *sql.DB
+	CurrencyHandler     *handler.CurrencyHandler
+	ExchangeRateHandler *handler.ExchangeRateHandler
+	ExchangeHandler     *handler.ExchangeHandler
 }
 
-func NewServer(inputDB *sql.DB) *Server {
+func NewServer(currencyHandler *handler.CurrencyHandler, exchangeRateHandler *handler.ExchangeRateHandler, exchangeHandler *handler.ExchangeHandler) *Server {
 	return &Server{
-		db: inputDB,
+		CurrencyHandler:     currencyHandler,
+		ExchangeRateHandler: exchangeRateHandler,
+		ExchangeHandler:     exchangeHandler,
 	}
+}
+
+func (s *Server) registerRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /currencies", s.CurrencyHandler.AllHandler)
+	mux.HandleFunc("GET /currency/{code}", s.CurrencyHandler.CodeHandler)
+	mux.HandleFunc("POST /currencies", s.CurrencyHandler.NewCurrency)
+
+	mux.HandleFunc("GET /exchangeRates", s.ExchangeRateHandler.AllHandler)
+	mux.HandleFunc("GET /exchangeRates/{code}", s.ExchangeRateHandler.CodeHandler)
+	mux.HandleFunc("POST /exchangeRates", s.ExchangeRateHandler.NewExchange)
+	mux.HandleFunc("PATCH /exchangeRates/{code}", s.ExchangeRateHandler.UpdateHandler)
+
+	mux.HandleFunc("GET /exchange", s.ExchangeHandler.SearchHandler)
 }
 
 func (s *Server) Run() {
 	mux := http.NewServeMux()
+	s.registerRoutes(mux)
 
-	currencyService := service.NewCurrencyService(s.db)
-	currencyHandler := handler.NewCurrencyHandler(currencyService)
-
-	exchangeService := service.NewExchangeService(s.db)
-	exchangeHandler := handler.NewExchangeHandler(exchangeService)
-
-	exchangeRateService := service.NewExchangeRateService(s.db)
-	exchangeRateHandler := handler.NewExchangeRateHandler(exchangeRateService)
-
-	mux.HandleFunc("GET /currencies", currencyHandler.AllHandler)
-	mux.HandleFunc("GET /currency/{code}", currencyHandler.CodeHandler)
-	mux.HandleFunc("POST /currencies", currencyHandler.NewCurrency)
-
-	mux.HandleFunc("GET /exchangeRates", exchangeHandler.AllHandler)
-	mux.HandleFunc("GET /exchangeRates/{code}", exchangeHandler.CodeHandler)
-	mux.HandleFunc("POST /exchangeRates", exchangeHandler.NewExchange)
-	mux.HandleFunc("PATCH /exchangeRates/{code}", exchangeHandler.UpdateHandler)
-
-	mux.HandleFunc("GET /exchange", exchangeRateHandler.SearchHandler)
+	handler := middleware.Logging(mux)
 
 	server := &http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: handler,
 	}
 
 	if err := server.ListenAndServe(); err != nil {
