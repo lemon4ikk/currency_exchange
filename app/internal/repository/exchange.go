@@ -17,7 +17,7 @@ func NewExchangeRepo(r *sql.DB) ExchangeRepo {
 	}
 }
 
-func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]templates.ExchangeRateAmount, templates.Msg) {
+func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]templates.ExchangeRateAmount, error) {
 	var amountExchange []templates.ExchangeRateAmount
 	var baseId, targetId int
 	var m templates.Msg
@@ -28,7 +28,7 @@ func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]template
 	if err := baseCurrensyId.Scan(&baseId); err != nil {
 		if baseId == 0 {
 			m.Message = "валюта с кодом " + baseCode + " не найдена"
-			return amountExchange, m
+			return nil, err
 		}
 
 		log.Fatalf("Scan completed with error %v", err)
@@ -37,7 +37,7 @@ func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]template
 	if err := targetCurrensyId.Scan(&targetId); err != nil {
 		if targetId == 0 {
 			m.Message = "валюта с кодом " + targetCode + " не найдена"
-			return amountExchange, m
+			return nil, err
 		}
 
 		log.Fatalf("Scan completed with error %v", err)
@@ -45,7 +45,7 @@ func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]template
 
 	rateSql, err := e.repo.Query("SELECT Rate FROM ExchangeRates WHERE BaseCurrencyId = ? AND TargetCurrencyId = ?;", baseId, targetId)
 	if err != nil {
-		return amountExchange, m
+		return nil, err
 	}
 	var rate float64
 
@@ -96,21 +96,19 @@ func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]template
 
 		for baseUsdRateSql.Next() {
 			if err := baseUsdRateSql.Scan(&baseUsdRate); err != nil {
-				m.Message = err.Error()
-				return amountExchange, m
+				return amountExchange, err
 			}
 		}
 
 		for targetUsdRateSql.Next() {
 			if err := targetUsdRateSql.Scan(&targetUsdRate); err != nil {
-				m.Message = err.Error()
-				return amountExchange, m
+				return amountExchange, err
 			}
 		}
 
 		if baseUsdRate == 0 || targetUsdRate == 0 {
 			m.Message = "обменный курс не найден"
-			return amountExchange, m
+			return amountExchange, err
 		}
 
 		if reverseFlag {
@@ -173,7 +171,7 @@ func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]template
 
 		if err := currencyInfo.Scan(&e.BaseCurrency.ID, &e.BaseCurrency.Name, &e.BaseCurrency.Code, &e.BaseCurrency.Sign, &e.TargetCurrency.ID, &e.TargetCurrency.Name, &e.TargetCurrency.Code, &e.TargetCurrency.Sign); err != nil {
 			m.Message = "ошибка"
-			return amountExchange, m
+			return amountExchange, err
 		}
 
 		if reverseFlag {
@@ -186,5 +184,5 @@ func (e *ExchangeRepo) Exchange(baseCode, targetCode, amount string) ([]template
 		amountExchange = append(amountExchange, e)
 	}
 
-	return amountExchange, m
+	return amountExchange, nil
 }

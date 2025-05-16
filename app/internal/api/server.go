@@ -22,16 +22,16 @@ func NewServer(currencyHandler *handler.CurrencyHandler, exchangeRateHandler *ha
 }
 
 func (s *Server) registerRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /currencies", s.CurrencyHandler.AllHandler)
-	mux.HandleFunc("GET /currency/{code}", s.CurrencyHandler.CodeHandler)
-	mux.HandleFunc("POST /currencies", s.CurrencyHandler.NewCurrency)
+	mux.HandleFunc("GET /currencies", middleware.WriteJSON(s.CurrencyHandler.AllHandler))
+	mux.HandleFunc("GET /currency/{code}", middleware.WriteJSON(s.CurrencyHandler.CodeHandler))
+	mux.HandleFunc("POST /currencies", middleware.WriteJSON(s.CurrencyHandler.NewCurrency))
 
-	mux.HandleFunc("GET /exchangeRates", s.ExchangeRateHandler.AllHandler)
-	mux.HandleFunc("GET /exchangeRates/{code}", s.ExchangeRateHandler.CodeHandler)
-	mux.HandleFunc("POST /exchangeRates", s.ExchangeRateHandler.NewExchange)
-	mux.HandleFunc("PATCH /exchangeRates/{code}", s.ExchangeRateHandler.UpdateHandler)
+	mux.HandleFunc("GET /exchangeRates", middleware.WriteJSON(s.ExchangeRateHandler.AllHandler))
+	mux.HandleFunc("GET /exchangeRates/{code}", middleware.WriteJSON(s.ExchangeRateHandler.CodeHandler))
+	mux.HandleFunc("POST /exchangeRates", middleware.WriteJSON(s.ExchangeRateHandler.NewExchange))
+	mux.HandleFunc("PATCH /exchangeRates/{code}", middleware.WriteJSON(s.ExchangeRateHandler.UpdateHandler))
 
-	mux.HandleFunc("GET /exchange", s.ExchangeHandler.SearchHandler)
+	mux.HandleFunc("GET /exchange", middleware.WriteJSON(s.ExchangeHandler.SearchHandler))
 }
 
 func (s *Server) Run() {

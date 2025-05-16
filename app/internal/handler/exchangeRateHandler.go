@@ -1,9 +1,12 @@
 package handler
 
 import (
-	"currency_exchange/internal/middleware"
+	"currency_exchange/internal/repository"
 	"currency_exchange/internal/service"
+	"currency_exchange/internal/validator"
+	"io"
 	"net/http"
+	"net/url"
 )
 
 type ExchangeRateHandler struct {
@@ -16,56 +19,95 @@ func NewExchangeRateHandler(c *service.ExchangeRateService) *ExchangeRateHandler
 	}
 }
 
-func (c *ExchangeRateHandler) AllHandler(w http.ResponseWriter, r *http.Request) {
-	e, msg := c.exchange.AllExchange(w, r)
-	if msg.Message != "" {
-		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
-		return
+func (c *ExchangeRateHandler) AllHandler(w http.ResponseWriter, r *http.Request) (interface{}, int, error) {
+	exchangeRates, err := c.exchange.AllExchange(w, r)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
 	}
 
-	middleware.WriteJSON(w, http.StatusOK, e)
+	return exchangeRates, http.StatusOK, nil
 }
 
-func (c *ExchangeRateHandler) CodeHandler(w http.ResponseWriter, r *http.Request) {
+func (c *ExchangeRateHandler) CodeHandler(w http.ResponseWriter, r *http.Request) (interface{}, int, error) {
 	code := r.PathValue("code")
 
-	e, msg := c.exchange.CodeExchange(code)
-	var s int
-	if msg.Message != "" {
-		if msg.Message == "ошибка" {
-			s = http.StatusInternalServerError
-		} else {
+	status, err := validator.ValidateCurrency(code)
+	if err != nil {
+		return nil, status, err
+	}
+
+	exchangeRate, err := c.exchange.CodeExchange(code)
+	if err != nil {
+		s := http.StatusInternalServerError
+
+		if err == repository.ErrExchangeRateNotFound {
 			s = http.StatusNotFound
 		}
 
-		middleware.WriteJSON(w, s, msg)
-		return
+		return nil, s, err
 	}
 
-	middleware.WriteJSON(w, http.StatusOK, e)
+	return exchangeRate, http.StatusOK, nil
 }
 
-func (c *ExchangeRateHandler) NewExchange(w http.ResponseWriter, r *http.Request) {
-	baseCurrencyCode := r.FormValue("baseCurrencyCode")
-	targetCurrencyCode := r.FormValue("targetCurrencyCode")
-	rate := r.FormValue("rate")
+func (c *ExchangeRateHandler) NewExchange(w http.ResponseWriter, r *http.Request) (interface{}, int, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+	}
+	defer r.Body.Close()
 
-	e, msg := c.exchange.NewExchange(baseCurrencyCode, targetCurrencyCode, rate)
-	if msg.Message != "" {
-		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
 	}
 
-	middleware.WriteJSON(w, http.StatusCreated, e)
+	baseCurrencyCode := values.Get("baseCurrencyCode")
+	targetCurrencyCode := values.Get("targetCurrencyCode")
+	rate := values.Get("rate")
+
+	status, err := validator.ValidateCurrency(baseCurrencyCode)
+	if err != nil {
+		return nil, status, err
+	}
+
+	status, err = validator.ValidateCurrency(targetCurrencyCode)
+	if err != nil {
+		return nil, status, err
+	}
+
+	exchangeRate, err := c.exchange.NewExchange(baseCurrencyCode, targetCurrencyCode, rate)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+
+	return exchangeRate, http.StatusOK, nil
 }
 
-func (c *ExchangeRateHandler) UpdateHandler(w http.ResponseWriter, r *http.Request) {
-	code := r.PathValue("code")
-	rate := r.FormValue("rate")
+func (c *ExchangeRateHandler) UpdateHandler(w http.ResponseWriter, r *http.Request) (interface{}, int, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+	}
+	defer r.Body.Close()
 
-	e, msg := c.exchange.UpdateExchange(code, rate)
-	if msg.Message != "" {
-		middleware.WriteJSON(w, http.StatusInternalServerError, msg)
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
 	}
 
-	middleware.WriteJSON(w, http.StatusOK, e)
+	code := values.Get("code")
+	rate := values.Get("rate")
+
+	status, err := validator.ValidateCurrency(code)
+	if err != nil {
+		return nil, status, err
+	}
+
+	exchangeRate, err := c.exchange.UpdateExchange(code, rate)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+
+	return exchangeRate, http.StatusOK, nil
 }

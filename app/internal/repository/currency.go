@@ -3,12 +3,14 @@ package repository
 import (
 	"currency_exchange/internal/templates"
 	"database/sql"
-	"log"
+	"errors"
 )
 
 type CurrencyRepo struct {
 	repo *sql.DB
 }
+
+var ErrCurrencyNotFound error = errors.New("Currency not found")
 
 func NewCurrencyRepo(r *sql.DB) CurrencyRepo {
 	return CurrencyRepo{
@@ -16,65 +18,57 @@ func NewCurrencyRepo(r *sql.DB) CurrencyRepo {
 	}
 }
 
-func (s *CurrencyRepo) All() ([]templates.Currency, templates.Msg) {
+func (s *CurrencyRepo) All() ([]templates.Currency, error) {
 	var currencies []templates.Currency
-	var m templates.Msg
-
 	rows, err := s.repo.Query("SELECT * FROM Currencies")
 	if err != nil {
-		m.Message = "ошибка"
-		log.Fatal(err)
-		return nil, m
+		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var c templates.Currency
 		if err = rows.Scan(&c.ID, &c.Code, &c.FullName, &c.Sign); err != nil {
-			m.Message = "ошибка"
-			return nil, m
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, ErrCurrencyNotFound
+			}
+
+			return nil, err
 		}
 		currencies = append(currencies, c)
 	}
 
-	return currencies, m
+	return currencies, nil
 }
 
-func (s *CurrencyRepo) Code(code string) (templates.Currency, templates.Msg) {
+func (s *CurrencyRepo) Code(code string) (templates.Currency, error) {
 	var currency templates.Currency
-	var m templates.Msg
 
 	rows := s.repo.QueryRow("SELECT * FROM Currencies WHERE Code = ?;", code)
 
 	if err := rows.Scan(&currency.ID, &currency.Code, &currency.FullName, &currency.Sign); err != nil {
-		if err == sql.ErrNoRows {
-			m.Message = "валюта не найдена"
-			return currency, m
+		if errors.Is(err, sql.ErrNoRows) {
+			return currency, ErrCurrencyNotFound
 		}
 
-		m.Message = "ошибка"
-		return currency, m
+		return currency, err
 	}
 
-	return currency, m
+	return currency, nil
 }
 
-func (s *CurrencyRepo) New(name, code, sign string) (templates.Currency, templates.Msg) {
+func (s *CurrencyRepo) New(name, code, sign string) (templates.Currency, error) {
 	var newCurrency templates.Currency
-	var m templates.Msg
 
 	newValues := s.repo.QueryRow("INSERT INTO Currencies (Code, FullName, Sign) VALUES (?, ?, ?) RETURNING ID, Code, FullName, Sign;", code, name, sign)
 
 	if err := newValues.Scan(&newCurrency.ID, &newCurrency.Code, &newCurrency.FullName, &newCurrency.Sign); err != nil {
 		if err.Error() == "UNIQUE constraint failed: Currencies.Code" {
-			m.Message = "валюта с таким кодом уже существует"
-			return newCurrency, m
+			return newCurrency, err
 		}
 
-		m.Message = "ошибка"
-		log.Fatal(err.Error())
-		return newCurrency, m
+		return newCurrency, err
 	}
 
-	return newCurrency, m
+	return newCurrency, nil
 }

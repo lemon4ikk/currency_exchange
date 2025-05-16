@@ -3,6 +3,7 @@ package repository
 import (
 	"currency_exchange/internal/templates"
 	"database/sql"
+	"errors"
 )
 
 type ExchangeRateRepo struct {
@@ -15,9 +16,11 @@ func NewExchangeRateRepo(r *sql.DB) ExchangeRateRepo {
 	}
 }
 
-func (e *ExchangeRateRepo) AllExchange() ([]templates.ExchangeRate, templates.Msg) {
+var ErrExchangeRateNotFound error = errors.New("Exchange rate not found")
+var ErrExchangeRateDoesNotExist error = errors.New("Currency from the currency pair does not exist in the database")
+
+func (e *ExchangeRateRepo) AllExchange() ([]templates.ExchangeRate, error) {
 	var exchange []templates.ExchangeRate
-	var m templates.Msg
 
 	currencyInfo, err := e.repo.Query(
 		`SELECT e.ID AS id,
@@ -34,30 +37,27 @@ func (e *ExchangeRateRepo) AllExchange() ([]templates.ExchangeRate, templates.Ms
 		JOIN Currencies bc ON e.BaseCurrencyId = bc.ID
 		JOIN Currencies tc ON e.TargetCurrencyId = tc.ID;`)
 	if err != nil {
-		m.Message = "ошибка"
-		return nil, m
+		return nil, err
 	}
 
 	for currencyInfo.Next() {
 		var e templates.ExchangeRate
 		if err = currencyInfo.Scan(&e.ID, &e.BaseCurrency.ID, &e.BaseCurrency.Name, &e.BaseCurrency.Code, &e.BaseCurrency.Sign, &e.TargetCurrency.ID, &e.TargetCurrency.Name, &e.TargetCurrency.Code, &e.TargetCurrency.Sign, &e.Rate); err != nil {
-			m.Message = "ошибка"
-			return nil, m
+			return nil, err
 		}
 
 		exchange = append(exchange, e)
 	}
 
-	return exchange, m
+	return exchange, nil
 }
 
-func (e *ExchangeRateRepo) CodeExchange(code string) ([]templates.ExchangeRate, templates.Msg) {
+func (er *ExchangeRateRepo) CodeExchange(code string) ([]templates.ExchangeRate, error) {
 	var exchange []templates.ExchangeRate
-	var m templates.Msg
-	base := string(code[0]) + string(code[1]) + string(code[2])
-	target := string(code[3]) + string(code[4]) + string(code[5])
+	base := string(code[:3])
+	target := string(code[3:])
 
-	currencyInfo, err := e.repo.Query(
+	currencyInfo := er.repo.QueryRow(
 		`SELECT e.ID AS id,
 		 	    cb.ID AS bc_id,
 	    	    cb.FullName AS bc_name,
@@ -72,29 +72,22 @@ func (e *ExchangeRateRepo) CodeExchange(code string) ([]templates.ExchangeRate, 
 	    JOIN Currencies cb ON e.BaseCurrencyId = cb.ID
 	    JOIN Currencies ct ON e.TargetCurrencyId = ct.ID 
 	    WHERE bc_code = ? AND tg_code = ?;`, base, target)
-	if err != nil {
-		m.Message = "ошибка"
-		return nil, m
-	}
 
-	for currencyInfo.Next() {
-		var e templates.ExchangeRate
-		if err = currencyInfo.Scan(&e.ID, &e.BaseCurrency.ID, &e.BaseCurrency.Name, &e.BaseCurrency.Code, &e.BaseCurrency.Sign, &e.TargetCurrency.ID, &e.TargetCurrency.Name, &e.TargetCurrency.Code, &e.TargetCurrency.Sign, &e.Rate); err != nil {
-			if err == sql.ErrNoRows {
-				m.Message = "обменный курс для пары не найден"
-			}
-
-			m.Message = "ошибка"
-			return nil, m
+	var e templates.ExchangeRate
+	if err := currencyInfo.Scan(&e.ID, &e.BaseCurrency.ID, &e.BaseCurrency.Name, &e.BaseCurrency.Code, &e.BaseCurrency.Sign, &e.TargetCurrency.ID, &e.TargetCurrency.Name, &e.TargetCurrency.Code, &e.TargetCurrency.Sign, &e.Rate); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrExchangeRateNotFound
 		}
 
-		exchange = append(exchange, e)
+		return nil, err
 	}
 
-	return exchange, m
+	exchange = append(exchange, e)
+
+	return exchange, nil
 }
 
-func (e *ExchangeRateRepo) NewExchange(baseCurrencyCode, targetCurrencyCode, rate string) ([]templates.ExchangeRate, templates.Msg) {
+func (e *ExchangeRateRepo) NewExchange(baseCurrencyCode, targetCurrencyCode, rate string) ([]templates.ExchangeRate, error) {
 	var b, t int
 	var m templates.Msg
 
@@ -103,15 +96,13 @@ func (e *ExchangeRateRepo) NewExchange(baseCurrencyCode, targetCurrencyCode, rat
 
 	if err := baseCurrensyId.Scan(&b); err != nil {
 		if err == sql.ErrNoRows {
-			m.Message = "валюта с кодом " + baseCurrencyCode + " из валютной пары не существует в БД"
-			return nil, m
+			return nil, ErrExchangeRateDoesNotExist
 		}
 	}
 
 	if err := targetCurrensyId.Scan(&t); err != nil {
 		if err == sql.ErrNoRows {
-			m.Message = "валюта с кодом " + targetCurrencyCode + " из валютной пары не сузествует в БД"
-			return nil, m
+			return nil, ErrExchangeRateDoesNotExist
 		}
 	}
 
@@ -136,23 +127,23 @@ func (e *ExchangeRateRepo) NewExchange(baseCurrencyCode, targetCurrencyCode, rat
 		WHERE bc_id = ? AND tc_id = ?;`, b, t)
 	if err != nil {
 		m.Message = "ошибка"
-		return nil, m
+		return nil, err
 	}
 
 	for currencyInfo.Next() {
 		var e templates.ExchangeRate
 		if err = currencyInfo.Scan(&e.ID, &e.BaseCurrency.ID, &e.BaseCurrency.Name, &e.BaseCurrency.Code, &e.BaseCurrency.Sign, &e.TargetCurrency.ID, &e.TargetCurrency.Name, &e.TargetCurrency.Code, &e.TargetCurrency.Sign, &e.Rate); err != nil {
 			m.Message = "ошибка"
-			return nil, m
+			return nil, err
 		}
 
 		newExchange = append(newExchange, e)
 	}
 
-	return newExchange, m
+	return newExchange, nil
 }
 
-func (e *ExchangeRateRepo) UpdateExchange(c, rate string) ([]templates.ExchangeRate, templates.Msg) {
+func (e *ExchangeRateRepo) UpdateExchange(c, rate string) ([]templates.ExchangeRate, error) {
 	var baseId, targetId int
 	var m templates.Msg
 
@@ -165,14 +156,14 @@ func (e *ExchangeRateRepo) UpdateExchange(c, rate string) ([]templates.ExchangeR
 	if err := baseCurrensyId.Scan(&baseId); err != nil {
 		if err == sql.ErrNoRows {
 			m.Message = "валюта с кодом " + baseCurrencyCode + " из валютной пары не существует в БД"
-			return nil, m
+			return nil, err
 		}
 	}
 
 	if err := targetCurrensyId.Scan(&targetId); err != nil {
 		if err == sql.ErrNoRows {
 			m.Message = "валюта с кодом " + targetCurrencyCode + " из валютной пары не сузествует в БД"
-			return nil, m
+			return nil, err
 		}
 	}
 
@@ -197,18 +188,18 @@ func (e *ExchangeRateRepo) UpdateExchange(c, rate string) ([]templates.ExchangeR
 		WHERE bc_id = ? AND tc_id = ?;`, baseId, targetId)
 	if err != nil {
 		m.Message = "ошибка"
-		return nil, m
+		return nil, err
 	}
 
 	for currencyInfo.Next() {
 		var e templates.ExchangeRate
 		if err = currencyInfo.Scan(&e.ID, &e.BaseCurrency.ID, &e.BaseCurrency.Name, &e.BaseCurrency.Code, &e.BaseCurrency.Sign, &e.TargetCurrency.ID, &e.TargetCurrency.Name, &e.TargetCurrency.Code, &e.TargetCurrency.Sign, &e.Rate); err != nil {
 			m.Message = "ошибка"
-			return nil, m
+			return nil, err
 		}
 
 		newExchange = append(newExchange, e)
 	}
 
-	return newExchange, m
+	return newExchange, nil
 }

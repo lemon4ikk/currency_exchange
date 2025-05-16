@@ -15,14 +15,14 @@ func NewCurrencyService(r repository.CurrencyRepo) CurrencyService {
 	}
 }
 
-func (s *CurrencyService) AllCurrencies() ([]templates.Currency, templates.Msg) {
+func (s *CurrencyService) AllCurrencies() ([]templates.Currency, error) {
 	return s.repo.All()
 }
 
-func (s *CurrencyService) Code(code string) (templates.Currency, templates.Msg) {
+func (s *CurrencyService) Code(code string) (templates.Currency, error) {
 	return s.repo.Code(code)
 }
 
-func (s *CurrencyService) New(name, code, sign string) (templates.Currency, templates.Msg) {
+func (s *CurrencyService) New(name, code, sign string) (templates.Currency, error) {
 	return s.repo.New(name, code, sign)
 }

@@ -1,9 +1,11 @@
 package handler
 
 import (
-	"currency_exchange/internal/middleware"
 	"currency_exchange/internal/service"
+	"currency_exchange/internal/validator"
+	"io"
 	"net/http"
+	"net/url"
 )
 
 type ExchangeHandler struct {
@@ -16,17 +18,37 @@ func NewExchangeHandler(e *service.ExchangeService) *ExchangeHandler {
 	}
 }
 
-func (e *ExchangeHandler) SearchHandler(w http.ResponseWriter, r *http.Request) {
-	baseCode := r.FormValue("from")
-	targetCode := r.FormValue("to")
-	amount := r.FormValue("amount")
+func (e *ExchangeHandler) SearchHandler(w http.ResponseWriter, r *http.Request) (interface{}, int, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+	}
+	defer r.Body.Close()
 
-	res, m := e.exchangeService.Exchange(baseCode, targetCode, amount)
-
-	if m.Message != "" {
-		middleware.WriteJSON(w, http.StatusInternalServerError, m)
-		return
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
 	}
 
-	middleware.WriteJSON(w, http.StatusOK, res)
+	baseCode := values.Get("from")
+	targetCode := values.Get("to")
+	amount := values.Get("amount")
+
+	status, err := validator.ValidateCurrency(baseCode)
+	if err != nil {
+		return nil, status, err
+	}
+
+	status, err = validator.ValidateCurrency(targetCode)
+	if err != nil {
+		return nil, status, err
+	}
+
+	exchange, err := e.exchangeService.Exchange(baseCode, targetCode, amount)
+
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+
+	return exchange, http.StatusOK, nil
 }

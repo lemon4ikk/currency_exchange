@@ -15,6 +15,6 @@ func NewExchangeService(r repository.ExchangeRepo) ExchangeService {
 	}
 }
 
-func (e *ExchangeService) Exchange(baseCode, targetCode, amount string) ([]templates.ExchangeRateAmount, templates.Msg) {
+func (e *ExchangeService) Exchange(baseCode, targetCode, amount string) ([]templates.ExchangeRateAmount, error) {
 	return e.repo.Exchange(baseCode, targetCode, amount)
 }
